@@ -2,6 +2,8 @@
 
 This document explains the internal workings of CubeBridge - how Cube.js processes queries, generates SQL, and delivers data to the frontend.
 
+> **💡 Pro Tip:** CubeBridge includes a built-in SQL viewer in the UI! You can see the exact SQL that Cube.js generates in real-time as you build queries.
+
 ## 📊 Complete Query Flow
 
 ### **Step 1: User Interaction (Frontend)**

@@ -9,6 +9,7 @@ A modern query builder interface that enables dynamic data exploration through c
 - **Real-time Queries** - Execute queries instantly and see results in a responsive table
 - **Smart Filtering** - Dimensions filter dynamically based on your cube selection
 - **Clean Interface** - Focus on dimensional data without aggregation noise
+- **SQL Viewer** - See the exact SQL queries that Cube.js generates for debugging and learning
 
 ## 🛠️ Tech Stack
 
@@ -64,7 +65,8 @@ Frontend runs on **http://localhost:5173**
 1. Open **http://localhost:5173** in your browser
 2. Select cubes (People, PersonJobs) to auto-load their dimensions
 3. View query results in real-time
-4. Try selecting multiple cubes to see joined data
+4. Check the **Generated SQL** section to see what queries Cube.js creates
+5. Try selecting multiple cubes to see joined data and complex SQL
 
 ---
 

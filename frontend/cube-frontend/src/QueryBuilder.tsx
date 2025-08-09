@@ -26,6 +26,8 @@ const QueryBuilder: React.FC = () => {
   const [availableDimensions, setAvailableDimensions] = useState<Dimension[]>([]);
   const [cubes, setCubes] = useState<Cube[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generatedSQL, setGeneratedSQL] = useState<string>('');
+  const [sqlLoading, setSqlLoading] = useState(false);
   const hasFetchedMeta = useRef(false);
 
   // Fetch available cubes, measures, and dimensions from backend
@@ -113,6 +115,42 @@ const QueryBuilder: React.FC = () => {
     timeDimensions: [],
     filters: []
   };
+
+  // Fetch generated SQL for the current query
+  const fetchGeneratedSQL = async (queryObj: any) => {
+    if (queryObj.dimensions.length === 0) {
+      setGeneratedSQL('');
+      return;
+    }
+
+    setSqlLoading(true);
+    try {
+      const response = await fetch('http://localhost:4000/cubejs-api/v1/sql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'secret'
+        },
+        body: JSON.stringify({ query: queryObj })
+      });
+      const sqlData = await response.json();
+      
+      if (sqlData.sql && sqlData.sql.sql && sqlData.sql.sql.length > 0) {
+        setGeneratedSQL(sqlData.sql.sql[0]);
+      } else {
+        setGeneratedSQL('No SQL generated');
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch SQL:', error);
+      setGeneratedSQL('Error fetching SQL');
+    }
+    setSqlLoading(false);
+  };
+
+  // Fetch SQL whenever query changes
+  useEffect(() => {
+    fetchGeneratedSQL(query);
+  }, [selectedDimensions]);
 
   const renderChart = ({ resultSet, error, loadingState }: { resultSet?: any; error?: any; loadingState?: any }) => {
     if (loadingState?.isLoading) {
@@ -294,6 +332,41 @@ const QueryBuilder: React.FC = () => {
             <pre style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
               {JSON.stringify(query, null, 2)}
             </pre>
+          </Card>
+        </Col>
+
+        {/* Generated SQL Display */}
+        <Col span={24}>
+          <Card 
+            title="Generated SQL" 
+            className="sql-display"
+            extra={
+              sqlLoading && <Spin size="small" />
+            }
+          >
+            {generatedSQL ? (
+              <pre style={{ 
+                background: '#f0f2f5', 
+                padding: '15px', 
+                borderRadius: '4px',
+                fontSize: '12px',
+                lineHeight: '1.4',
+                overflow: 'auto',
+                maxHeight: '300px',
+                border: '1px solid #d9d9d9'
+              }}>
+                {generatedSQL}
+              </pre>
+            ) : (
+              <div style={{ 
+                color: '#999', 
+                fontStyle: 'italic', 
+                padding: '15px',
+                textAlign: 'center' 
+              }}>
+                Select cubes to see generated SQL
+              </div>
+            )}
           </Card>
         </Col>
       </Row>
