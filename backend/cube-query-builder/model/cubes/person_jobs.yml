@@ -1,0 +1,35 @@
+cubes:
+  - name: PersonJobs
+    sql: >
+      SELECT 1 as person_id, 'Software Engineer' as job_title, 'San Francisco' as location
+      UNION ALL SELECT 2, 'Product Manager', 'New York'
+      UNION ALL SELECT 3, 'Data Scientist', 'Seattle'
+      UNION ALL SELECT 4, 'UX Designer', 'Los Angeles'
+      UNION ALL SELECT 5, 'DevOps Engineer', 'Austin'
+      UNION ALL SELECT 6, 'Marketing Manager', 'Chicago'
+      UNION ALL SELECT 7, 'Sales Representative', 'Boston'
+      UNION ALL SELECT 8, 'HR Specialist', 'Denver'
+      UNION ALL SELECT 9, 'Financial Analyst', 'Miami'
+      UNION ALL SELECT 10, 'Project Manager', 'Portland'
+
+    joins:
+      - name: People
+        sql: "{CUBE}.person_id = {People}.id"
+        relationship: many_to_one
+
+    measures: []
+
+    dimensions:
+      - name: person_id
+        sql: person_id
+        type: number
+        primary_key: true
+        public: false
+
+      - name: job_title
+        sql: job_title
+        type: string
+
+      - name: location
+        sql: location
+        type: string 

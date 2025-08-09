@@ -1,0 +1,166 @@
+/* Main container - responsive with proper scrolling */
+.query-builder-container {
+  padding: 16px;
+  background: #f5f5f5;
+  min-height: 100vh;
+  overflow-x: auto;
+}
+
+/* Query panel - make it scrollable and responsive */
+.query-panel {
+  height: fit-content;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.query-section {
+  margin-bottom: 16px;
+}
+
+/* Measures and Dimensions sections - scrollable */
+.query-section > div {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Custom scrollbar styling */
+.query-section > div::-webkit-scrollbar {
+  width: 6px;
+}
+
+.query-section > div::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.query-section > div::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.query-section > div::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Results panel - responsive and scrollable */
+.results-panel {
+  min-height: 400px;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.results-panel .ant-card-body {
+  padding: 16px;
+  overflow: auto;
+}
+
+/* Query JSON - responsive */
+.query-json {
+  margin-top: 16px;
+}
+
+.query-json pre {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Ant Design overrides */
+.ant-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.ant-card-head {
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-btn-primary {
+  height: 40px;
+  font-weight: 500;
+}
+
+.ant-select-multiple .ant-select-selection-item {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+}
+
+/* Table responsiveness */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+.ant-table {
+  min-width: 600px;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1200px) {
+  .query-builder-container {
+    padding: 12px;
+  }
+  
+  .query-panel {
+    max-height: 70vh;
+  }
+  
+  .results-panel {
+    max-height: 70vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .query-builder-container {
+    padding: 8px;
+  }
+  
+  .query-panel {
+    max-height: 60vh;
+    margin-bottom: 16px;
+  }
+  
+  .results-panel {
+    max-height: 60vh;
+  }
+  
+  .query-json pre {
+    font-size: 10px;
+    max-height: 150px;
+  }
+  
+  .ant-table {
+    min-width: 500px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .query-builder-container {
+    padding: 4px;
+  }
+  
+  .ant-card {
+    margin-bottom: 8px;
+  }
+  
+  .ant-card-head-title {
+    font-size: 14px;
+  }
+  
+  .query-section h4 {
+    font-size: 14px !important;
+  }
+  
+  .ant-checkbox-wrapper {
+    font-size: 12px;
+  }
+  
+  .ant-table {
+    min-width: 400px;
+    font-size: 11px;
+  }
+} 
