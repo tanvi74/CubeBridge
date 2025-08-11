@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { QueryRenderer } from '@cubejs-client/react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useCubeQuery } from '@cubejs-client/react';
 import { Button, Card, Row, Col, Typography, Spin, Alert, Table, Checkbox, Space, Tag, Divider } from 'antd';
 import { ReloadOutlined, FilterOutlined, BarChartOutlined, TableOutlined } from '@ant-design/icons';
 import cubeApi from './cubejs-client';
@@ -12,33 +12,38 @@ interface Dimension {
   title: string;
   shortTitle: string;
   cubeName: string;
+  type: string;
+}
+
+interface Measure {
+  name: string;
+  title: string;
+  shortTitle: string;
+  cubeName: string;
+  type: string;
 }
 
 interface Cube {
   name: string;
-  measures: any[];
-  dimensions: any[];
+  measures: Measure[];
+  dimensions: Dimension[];
 }
 
-const QueryBuilder: React.FC = () => {
+const HookQueryBuilder: React.FC = () => {
   const [selectedCubes, setSelectedCubes] = useState<string[]>([]);
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
   const [availableDimensions, setAvailableDimensions] = useState<Dimension[]>([]);
+  const [availableMeasures, setAvailableMeasures] = useState<Measure[]>([]);
   const [cubes, setCubes] = useState<Cube[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMeasures, setSelectedMeasures] = useState<string[]>([]);
+  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
   const [generatedSQL, setGeneratedSQL] = useState<string>('');
   const [sqlLoading, setSqlLoading] = useState(false);
-  const [rowCount, setRowCount] = useState<number>(0);
-  const hasFetchedMeta = useRef(false);
 
   // Fetch available cubes, measures, and dimensions from backend
   useEffect(() => {
-    // Prevent duplicate calls in React StrictMode
-    if (hasFetchedMeta.current) return;
-    
     const fetchMeta = async () => {
-      hasFetchedMeta.current = true;
-      console.log('🔍 Fetching cube metadata...');
+      console.log('🔍 Fetching cube metadata for Simple Hook Query Builder...');
       
       try {
         const response = await fetch('http://localhost:4000/cubejs-api/v1/meta', {
@@ -51,34 +56,46 @@ const QueryBuilder: React.FC = () => {
         console.log('✅ Meta data received:', meta);
         
         const dimensions: Dimension[] = [];
+        const measures: Measure[] = [];
         const cubesData: Cube[] = [];
         
-        // Extract dimensions from all cubes
-        meta.cubes.forEach((cube: any) => {
+        // Extract dimensions and measures from all cubes
+        meta.cubes.forEach((cube: { name: string; measures: Measure[]; dimensions: Dimension[] }) => {
           cubesData.push({
             name: cube.name,
             measures: cube.measures,
             dimensions: cube.dimensions
           });
           
-          cube.dimensions.forEach((dimension: any) => {
+          cube.dimensions.forEach((dimension: { name: string; title: string; shortTitle: string; type: string }) => {
             dimensions.push({
               name: dimension.name,
               title: dimension.title,
               shortTitle: dimension.shortTitle,
-              cubeName: cube.name
+              cubeName: cube.name,
+              type: dimension.type
+            });
+          });
+
+          cube.measures.forEach((measure: { name: string; title: string; shortTitle: string; type: string }) => {
+            measures.push({
+              name: measure.name,
+              title: measure.title,
+              shortTitle: measure.shortTitle,
+              cubeName: cube.name,
+              type: measure.type
             });
           });
         });
         
         setAvailableDimensions(dimensions);
+        setAvailableMeasures(measures);
         setCubes(cubesData);
         setLoading(false);
         
-        console.log(`📊 Loaded ${dimensions.length} dimensions from ${cubesData.length} cubes`);
+        console.log(`📊 Loaded ${dimensions.length} dimensions and ${measures.length} measures from ${cubesData.length} cubes`);
       } catch (error) {
         console.error('❌ Failed to fetch cube metadata:', error);
-        hasFetchedMeta.current = false; // Allow retry on error
         setLoading(false);
       }
     };
@@ -86,40 +103,51 @@ const QueryBuilder: React.FC = () => {
     fetchMeta();
   }, []);
 
-  // Get relevant dimensions based on selected cubes
-  const getRelevantDimensions = () => {
-    if (selectedCubes.length === 0) {
-      return []; // Show nothing if no cubes selected
-    }
-
-    // Return dimensions only from selected cubes
+  // Get relevant dimensions and measures based on selected cubes
+  const relevantDimensions = useMemo(() => {
+    if (selectedCubes.length === 0) return [];
     return availableDimensions.filter(dimension => 
       selectedCubes.includes(dimension.cubeName)
     );
-  };
-
-  const relevantDimensions = getRelevantDimensions();
-
-  // Auto-select all relevant dimensions when cubes are selected
-  useEffect(() => {
-    if (selectedCubes.length > 0) {
-      const allRelevantDimensionNames = relevantDimensions.map(d => d.name);
-      setSelectedDimensions(allRelevantDimensionNames);
-    } else {
-      setSelectedDimensions([]);
-    }
   }, [selectedCubes, availableDimensions]);
 
-  const query = {
-    measures: [],
+  const relevantMeasures = useMemo(() => {
+    if (selectedCubes.length === 0) return [];
+    return availableMeasures.filter(measure => 
+      selectedCubes.includes(measure.cubeName)
+    );
+  }, [selectedCubes, availableMeasures]);
+
+  // Group dimensions and measures by cube for better organization
+  const groupedDimensions = useMemo(() => {
+    return relevantDimensions.reduce((acc, dimension) => {
+      if (!acc[dimension.cubeName]) acc[dimension.cubeName] = [];
+      acc[dimension.cubeName].push(dimension);
+      return acc;
+    }, {} as Record<string, Dimension[]>);
+  }, [relevantDimensions]);
+
+  const groupedMeasures = useMemo(() => {
+    return relevantMeasures.reduce((acc, measure) => {
+      if (!acc[measure.cubeName]) acc[measure.cubeName] = [];
+      acc[measure.cubeName].push(measure);
+      return acc;
+    }, {} as Record<string, Measure[]>);
+  }, [relevantMeasures]);
+
+  // Use Cube.js hook for query execution
+  const { resultSet, isLoading, error } = useCubeQuery({
+    measures: selectedMeasures,
     dimensions: selectedDimensions,
-    timeDimensions: [],
-    filters: []
-  };
+    limit: 100
+  }, {
+    subscribe: true,
+    cubeApi
+  });
 
   // Fetch generated SQL for the current query
-  const fetchGeneratedSQL = async (queryObj: any) => {
-    if (queryObj.dimensions.length === 0) {
+  const fetchGeneratedSQL = async (queryObj: { measures: string[]; dimensions: string[]; limit: number }) => {
+    if (queryObj.dimensions.length === 0 && queryObj.measures.length === 0) {
       setGeneratedSQL('');
       return;
     }
@@ -150,12 +178,60 @@ const QueryBuilder: React.FC = () => {
 
   // Fetch SQL whenever query changes
   useEffect(() => {
-    fetchGeneratedSQL(query);
-  }, [selectedDimensions]);
+    const currentQuery = {
+      measures: selectedMeasures,
+      dimensions: selectedDimensions,
+      limit: 100
+    };
+    fetchGeneratedSQL(currentQuery);
+  }, [selectedMeasures, selectedDimensions]);
 
-  const renderChart = ({ resultSet, error, loadingState }: { resultSet?: any; error?: any; loadingState?: any }) => {
-    if (loadingState?.isLoading) {
-      setRowCount(0);
+  const handleCubeSelection = (cubeName: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCubes([...selectedCubes, cubeName]);
+      // Auto-select all dimensions from the selected cube
+      const cubeDimensions = availableDimensions
+        .filter(dim => dim.cubeName === cubeName)
+        .map(dim => dim.name);
+      setSelectedDimensions(prev => [...prev, ...cubeDimensions]);
+    } else {
+      setSelectedCubes(selectedCubes.filter(c => c !== cubeName));
+      // Remove dimensions and measures from deselected cube
+      setSelectedDimensions(prev => prev.filter(d => {
+        const dimension = availableDimensions.find(dim => dim.name === d);
+        return dimension?.cubeName !== cubeName;
+      }));
+      setSelectedMeasures(prev => prev.filter(m => {
+        const measure = availableMeasures.find(meas => meas.name === m);
+        return measure?.cubeName !== cubeName;
+      }));
+    }
+  };
+
+  const handleDimensionSelection = (dimensionName: string, checked: boolean) => {
+    setSelectedDimensions(prev => 
+      checked 
+        ? [...prev, dimensionName]
+        : prev.filter(d => d !== dimensionName)
+    );
+  };
+
+  const handleMeasureSelection = (measureName: string, checked: boolean) => {
+    setSelectedMeasures(prev => 
+      checked 
+        ? [...prev, measureName]
+        : prev.filter(m => m !== measureName)
+    );
+  };
+
+  const resetQuery = () => {
+    setSelectedCubes([]);
+    setSelectedMeasures([]);
+    setSelectedDimensions([]);
+  };
+
+  const renderChart = () => {
+    if (isLoading) {
       return (
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <Spin size="large" />
@@ -165,7 +241,6 @@ const QueryBuilder: React.FC = () => {
     }
 
     if (error) {
-      setRowCount(0);
       return (
         <Alert
           message="Query Error"
@@ -177,7 +252,6 @@ const QueryBuilder: React.FC = () => {
     }
 
     if (!resultSet) {
-      setRowCount(0);
       return (
         <Alert
           message="No Data"
@@ -191,9 +265,6 @@ const QueryBuilder: React.FC = () => {
     const dataSource = resultSet.tablePivot();
     const columns = resultSet.tableColumns();
     
-    // Update row count
-    setRowCount(dataSource.length);
-    
     return (
       <Table 
         dataSource={dataSource} 
@@ -204,14 +275,6 @@ const QueryBuilder: React.FC = () => {
       />
     );
   };
-
-
-  // Group dimensions by cube for better organization
-  const groupedDimensions = relevantDimensions.reduce((acc, dimension) => {
-    if (!acc[dimension.cubeName]) acc[dimension.cubeName] = [];
-    acc[dimension.cubeName].push(dimension);
-    return acc;
-  }, {} as Record<string, Dimension[]>);
 
   if (loading) {
     return (
@@ -225,10 +288,10 @@ const QueryBuilder: React.FC = () => {
   return (
     <div className="query-builder-container">
       <Title level={2}>
-        <BarChartOutlined /> Component-Based Query Builder
+        <BarChartOutlined /> Hook-Based Query Builder
       </Title>
       <Text type="secondary">
-        Traditional query builder using QueryRenderer component with enhanced styling
+        Clean and simple query builder using Cube.js hooks for real-time updates
       </Text>
       
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
@@ -242,13 +305,7 @@ const QueryBuilder: React.FC = () => {
                   <div key={cube.name} style={{ marginBottom: 12 }}>
                     <Checkbox
                       checked={selectedCubes.includes(cube.name)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedCubes([...selectedCubes, cube.name]);
-                        } else {
-                          setSelectedCubes(selectedCubes.filter(c => c !== cube.name));
-                        }
-                      }}
+                      onChange={(e) => handleCubeSelection(cube.name, e.target.checked)}
                     >
                       <Tag color="blue">{cube.name}</Tag>
                     </Checkbox>
@@ -261,12 +318,40 @@ const QueryBuilder: React.FC = () => {
 
             <div className="query-section">
               <Title level={4}>
-                <FilterOutlined /> Dimensions ({relevantDimensions.length})
-                {selectedCubes.length > 0 && (
-                  <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#888' }}>
-                    {' '}• filtered
-                  </span>
+                <TableOutlined /> Measures ({relevantMeasures.length})
+              </Title>
+              <div style={{ marginBottom: 16 }}>
+                {relevantMeasures.length === 0 ? (
+                  <div style={{ color: '#999', fontStyle: 'italic', padding: '8px' }}>
+                    Select cubes first to see relevant measures
+                  </div>
+                ) : (
+                  Object.entries(groupedMeasures).map(([cubeName, measures]) => (
+                    <div key={cubeName} style={{ marginBottom: 12 }}>
+                      <div style={{ fontWeight: 'bold', color: '#666', fontSize: '12px', marginBottom: 4 }}>
+                        {cubeName}
+                      </div>
+                      {measures.map((measure) => (
+                        <div key={measure.name} style={{ marginBottom: 6, marginLeft: 8 }}>
+                          <Checkbox
+                            checked={selectedMeasures.includes(measure.name)}
+                            onChange={(e) => handleMeasureSelection(measure.name, e.target.checked)}
+                          >
+                            <Text code>{measure.title}</Text>
+                          </Checkbox>
+                        </div>
+                      ))}
+                    </div>
+                  ))
                 )}
+              </div>
+            </div>
+
+            <Divider />
+
+            <div className="query-section">
+              <Title level={4}>
+                <FilterOutlined /> Dimensions ({relevantDimensions.length})
               </Title>
               <div style={{ marginBottom: 16 }}>
                 {relevantDimensions.length === 0 ? (
@@ -283,15 +368,12 @@ const QueryBuilder: React.FC = () => {
                         <div key={dimension.name} style={{ marginBottom: 6, marginLeft: 8 }}>
                           <Checkbox
                             checked={selectedDimensions.includes(dimension.name)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedDimensions([...selectedDimensions, dimension.name]);
-                              } else {
-                                setSelectedDimensions(selectedDimensions.filter(d => d !== dimension.name));
-                              }
-                            }}
+                            onChange={(e) => handleDimensionSelection(dimension.name, e.target.checked)}
                           >
                             <Text code>{dimension.title}</Text>
+                            <Tag color="green" style={{ marginLeft: 4 }}>
+                              {dimension.type}
+                            </Tag>
                           </Checkbox>
                         </div>
                       ))}
@@ -309,9 +391,10 @@ const QueryBuilder: React.FC = () => {
             title={
               <Space>
                 <span>Query Results</span>
-                {rowCount > 0 && (
+                {isLoading && <Spin size="small" />}
+                {resultSet && (
                   <Tag color="green">
-                    {rowCount} rows
+                    {resultSet.tablePivot().length} rows
                   </Tag>
                 )}
               </Space>
@@ -319,10 +402,7 @@ const QueryBuilder: React.FC = () => {
             extra={
               <Button
                 icon={<ReloadOutlined />}
-                onClick={() => {
-                  setSelectedCubes([]);
-                  setSelectedDimensions([]);
-                }}
+                onClick={resetQuery}
                 type="primary"
               >
                 Reset
@@ -330,11 +410,7 @@ const QueryBuilder: React.FC = () => {
             }
             className="results-panel"
           >
-            <QueryRenderer
-              query={query}
-              cubeApi={cubeApi}
-              render={renderChart}
-            />
+            {renderChart()}
           </Card>
         </Col>
 
@@ -342,7 +418,11 @@ const QueryBuilder: React.FC = () => {
         <Col span={24}>
           <Card title="Generated Query" className="query-json">
             <pre style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
-              {JSON.stringify(query, null, 2)}
+              {JSON.stringify({
+                measures: selectedMeasures,
+                dimensions: selectedDimensions,
+                limit: 100
+              }, null, 2)}
             </pre>
           </Card>
         </Col>
@@ -386,4 +466,4 @@ const QueryBuilder: React.FC = () => {
   );
 };
 
-export default QueryBuilder; 
+export default HookQueryBuilder; 
